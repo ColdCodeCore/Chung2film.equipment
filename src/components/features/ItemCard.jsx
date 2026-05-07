@@ -11,7 +11,7 @@ export default function ItemCard ({ item, reservations, onAddToCart, currentUser
   // 安全地取出該器材被預約的時段 (替換掉容易報錯的 flatMap)
   const itemReservations = [];
   (reservations || []).forEach(r => {
-    if (r.status === '已借出' && Array.isArray(r.items)) {
+    if ((r.status === '已借出' || r.status === '已逾期') && Array.isArray(r.items)) {
       r.items.forEach(i => {
         if (i.itemId === item.id || i.name === item.name) {
           itemReservations.push({ ...i, userId: r.userId, userName: r.userName });
@@ -30,13 +30,20 @@ export default function ItemCard ({ item, reservations, onAddToCart, currentUser
     });
 
   const currentlyUsedQty = currentUses.reduce((sum, i) => sum + (i.borrowQty || 1), 0);
-  const currentRemainingQty = item.qty - currentlyUsedQty;
+  const currentRemainingQty = typeof item.availableQty === 'number'
+    ? item.availableQty
+    : item.qty - currentlyUsedQty;
   const isOutOfStock = currentRemainingQty <= 0;
   
   const isCurrentlyBorrowedByMe = currentUses.some(i => i.userId === currentUser?.id || i.userName === currentUser?.name);
   
   let displayStatus = item.status;
-  if (displayStatus !== 'maintenance' && displayStatus !== 'inquire') {
+  if (
+    displayStatus !== 'maintenance' &&
+    displayStatus !== 'inquire' &&
+    displayStatus !== '未歸還' &&
+    displayStatus !== '已逾期'
+  ) {
     if (isCurrentlyBorrowedByMe) {
       displayStatus = 'renewable';
     } else {

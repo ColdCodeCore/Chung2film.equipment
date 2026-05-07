@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, AlertTriangle, } from 'lucide-react';
-import Button from '../components/common/Button';
+import { Search, Filter, AlertTriangle, Package } from 'lucide-react';
 import { useToolbarMorph } from '../hooks/useToolbarMorph';
 import ItemCard from '../components/features/ItemCard';
 

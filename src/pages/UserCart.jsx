@@ -3,7 +3,7 @@ import { Calendar, Package, Trash2 } from 'lucide-react';
 import Button from '../components/common/Button';
 import { getLocalDateString } from '../utils/helpers';
 
-export default function UserCart ({ cart = [], onRemoveFromCart, onUpdateCartItem, onUpdateAllCartDates, onSubmitReservation,item }) {
+export default function UserCart ({ cart = [], onRemoveFromCart, onUpdateCartItem, onUpdateAllCartDates, onSubmitReservation, item }) {
   const globalDates = cart[0] || {};
 
   return (

@@ -33,15 +33,18 @@ export default function AdminUsers ({ users = [], onUpdateUser, onAddUser, showA
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     fixMobileViewport(false);
+    let success = false;
     if (editingUser) {
-      onUpdateUser({ ...editingUser, ...formData });
+      success = await onUpdateUser({ ...editingUser, ...formData });
     } else {
-      onAddUser(formData);
+      success = await onAddUser(formData);
     }
-    setIsModalOpen(false);
+    if (success !== false) {
+      setIsModalOpen(false);
+    }
   };
 
   return (
@@ -127,7 +130,7 @@ export default function AdminUsers ({ users = [], onUpdateUser, onAddUser, showA
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingUser ? "編輯會員" : "新增會員"} placement="top">
         <form onSubmit={handleSubmit} className="space-y-4">
           <input required className="w-full p-2.5 bg-black/40 text-white border border-white/20 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none shadow-inner tracking-wider text-[13px] md:text-[15px]" placeholder="姓名" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-          <input maxLength="5" pattern="\d{5}" className="w-full p-2.5 bg-black/40 text-white border border-white/20 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none shadow-inner tracking-wider text-[13px] md:text-[15px]" placeholder="手機末五碼" value={formData.phoneLast5} onChange={e => setFormData({...formData, phoneLast5: e.target.value})} />
+          <input required maxLength="5" pattern="\d{5}" className="w-full p-2.5 bg-black/40 text-white border border-white/20 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none shadow-inner tracking-wider text-[13px] md:text-[15px]" placeholder="手機末五碼" value={formData.phoneLast5} onChange={e => setFormData({...formData, phoneLast5: e.target.value})} />
           <div>
             <label className="block text-xs md:text-sm font-medium text-gray-400 mb-1 tracking-widest">權限</label>
             <select className="w-full p-2.5 bg-black/40 text-white border border-white/20 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none appearance-none cursor-pointer shadow-inner tracking-wider text-[13px] md:text-[15px]" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
@@ -141,6 +144,3 @@ export default function AdminUsers ({ users = [], onUpdateUser, onAddUser, showA
     </div>
   );
 };
-
-
-

@@ -9,13 +9,13 @@ export default function LoginScreen ({ onLogin, onRegister, authError, authSucce
   const [form, setForm] = useState({ name: '', phoneLast5: '' });
   const [loginCode, setLoginCode] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (mode === 'login') {
       onLogin(loginCode);
     } else {
       // ⭐ 關鍵修正：捕捉 handleRegister 的回傳結果，成功才切換模式
-      const success = onRegister(form);
+      const success = await onRegister(form);
       if (success) {
         setMode('login');
         setForm({ name: '', phoneLast5: '' }); 

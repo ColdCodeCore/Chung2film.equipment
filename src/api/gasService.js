@@ -1,128 +1,137 @@
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyVTAbSztTZn9Pn7r27JQIXC1HPN9z3U_xOEfC1I0zAm17tYcDtI9Mos7Q3w4SYE9Tg/exec";
+const GAS_API_URL = (import.meta.env.VITE_GAS_API_URL || "").trim();
+const GAS_API_TOKEN = (import.meta.env.VITE_GAS_API_TOKEN || "").trim();
+
+const getBackendDebugContext = () => {
+  if (typeof window === "undefined") {
+    return { gasApiUrl: GAS_API_URL || "未設定", backendMeta: null };
+  }
+
+  return window.__ITEM_BORROWING_DEBUG__ || {
+    gasApiUrl: GAS_API_URL || "未設定",
+    backendMeta: null,
+  };
+};
+
+const mapActionError = (action, error) => {
+  const message = error?.message || "";
+
+  if (message === "Unknown Action") {
+    const debugContext = getBackendDebugContext();
+    const backendVersion = debugContext?.backendMeta?.version || "未知";
+    const supportedPostActions = Array.isArray(debugContext?.backendMeta?.supportedPostActions)
+      ? debugContext.backendMeta.supportedPostActions.join("、")
+      : "未知";
+
+    if (action === "updateUser") {
+      return new Error(
+        "後端尚未支援會員更新，或目前打到的不是你剛更新的那支 Web App。\n" +
+        `目前網址：${debugContext?.gasApiUrl || GAS_API_URL || "未設定"}\n` +
+        `目前版本：${backendVersion}\n` +
+        `支援動作：${supportedPostActions}`
+      );
+    }
+    return new Error(
+      "目前連到的後端版本較舊，或目前打到的不是你剛更新的那支 Web App。\n" +
+      `目前網址：${debugContext?.gasApiUrl || GAS_API_URL || "未設定"}\n` +
+      `目前版本：${backendVersion}\n` +
+      `支援動作：${supportedPostActions}`
+    );
+  }
+
+  return error;
+};
+
+const assertGasConfig = () => {
+  if (!GAS_API_URL) {
+    throw new Error("尚未設定 VITE_GAS_API_URL，請在前端環境變數填入目前使用中的 GAS Web App URL。");
+  }
+
+  if (!GAS_API_TOKEN) {
+    throw new Error("尚未設定 VITE_GAS_API_TOKEN，請在前端環境變數填入 APP_API_TOKEN。");
+  }
+};
+
+const parseApiResponse = async (res) => {
+  if (!res.ok) {
+    throw new Error(`API request failed with status ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data && data.success === false) {
+    throw new Error(data.error || "API request failed");
+  }
+
+  return data && data.data ? data.data : data;
+};
+
+const buildGetUrl = (action) => {
+  const url = new URL(GAS_API_URL);
+  url.searchParams.set("action", action);
+  if (GAS_API_TOKEN) {
+    url.searchParams.set("token", GAS_API_TOKEN);
+  }
+  return url.toString();
+};
+
+const postToGas = async (payload) => {
+  try {
+    const res = await fetch(GAS_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        ...payload,
+        ...(GAS_API_TOKEN ? { token: GAS_API_TOKEN } : {}),
+      }),
+    });
+
+    return await parseApiResponse(res);
+  } catch (error) {
+    throw mapActionError(payload?.action, error);
+  }
+};
 
 // === API 串接與本地雙軌模式服務 ===
 export const api = {
+  async getBackendMeta() {
+    assertGasConfig();
+    const res = await fetch(buildGetUrl("getMeta"));
+    return await parseApiResponse(res);
+  },
   async getInventory() {
-    if (GAS_API_URL) {
-      const res = await fetch(`${GAS_API_URL}?action=getInventory`);
-      return await res.json();
-    } else {
-      const data = JSON.parse(localStorage.getItem('mockDB') || 'null');
-      if (data) return data;
-      const initial = {
-        types: ['攝影器材', '收音設備', '配件', '其他'],
-        items: [{ id: 'IT1001', name: 'MacBook Pro M2', type: '筆記型電腦', qty: 3, status: 'available' }],
-        users: [
-          { id: 'U_00000_0', name: '管理員測試', phoneLast5: '00000', role: 'admin', status: 'active' },
-          { id: 'U_11111_1', name: '會員測試', phoneLast5: '11111', role: 'user', status: 'active' }
-        ],
-        reservations: [],
-        news: []
-      };
-      localStorage.setItem('mockDB', JSON.stringify(initial));
-      return initial;
-    }
+    assertGasConfig();
+    const res = await fetch(buildGetUrl("getInventory"));
+    return await parseApiResponse(res);
   },
   async addReservation(reservation) {
-    if (GAS_API_URL) {
-      await fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'addReservation', reservation })
-      });
-    } else {
-      const db = JSON.parse(localStorage.getItem('mockDB'));
-      db.reservations.push(reservation);
-      localStorage.setItem('mockDB', JSON.stringify(db));
-    }
+    assertGasConfig();
+    await postToGas({ action: 'addReservation', reservation });
   },
   async updateStatus(resId, status) {
-    if (GAS_API_URL) {
-      await fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'updateStatus', resId, status })
-      });
-    } else {
-      const db = JSON.parse(localStorage.getItem('mockDB'));
-      const target = db.reservations.find(r => r.id === resId);
-      if(target) target.status = status;
-      localStorage.setItem('mockDB', JSON.stringify(db));
-    }
+    assertGasConfig();
+    await postToGas({ action: 'updateStatus', resId, status });
   },
   async addUser(user) {
-    if (GAS_API_URL) {
-      await fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'addUser', user })
-      });
-    } else {
-      const db = JSON.parse(localStorage.getItem('mockDB'));
-      db.users.push(user);
-      localStorage.setItem('mockDB', JSON.stringify(db));
-    }
+    assertGasConfig();
+    return await postToGas({ action: 'addUser', user });
+  },
+  async updateUser(user) {
+    assertGasConfig();
+    return await postToGas({ action: 'updateUser', user });
   },
   async addItem(item) {
-    if (GAS_API_URL) {
-      await fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'addItem', item })
-      });
-    } else {
-      const db = JSON.parse(localStorage.getItem('mockDB'));
-      db.items.push(item);
-      db.news.push({
-        id: `NW_${Date.now()}`,
-        date: new Date().toLocaleString('zh-TW', {hour12: false}),
-        title: `✨ 新器材上架：${item.name}`,
-        content: ``,
-        imageUrl: '',
-        linkUrl: '',
-        linkText: ''
-      });
-      localStorage.setItem('mockDB', JSON.stringify(db));
-    }
+    assertGasConfig();
+    return await postToGas({ action: 'addItem', item });
   },
   async addNews(news) {
-    if (GAS_API_URL) {
-      await fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'addNews', news })
-      });
-    } else {
-      const db = JSON.parse(localStorage.getItem('mockDB'));
-      db.news.push(news);
-      localStorage.setItem('mockDB', JSON.stringify(db));
-    }
+    assertGasConfig();
+    await postToGas({ action: 'addNews', news });
   },
   async updateNews(news) {
-    if (GAS_API_URL) {
-      await fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'updateNews', news })
-      });
-    } else {
-      const db = JSON.parse(localStorage.getItem('mockDB'));
-      const idx = db.news.findIndex(n => n.id === news.id);
-      if (idx > -1) db.news[idx] = news;
-      localStorage.setItem('mockDB', JSON.stringify(db));
-    }
+    assertGasConfig();
+    await postToGas({ action: 'updateNews', news });
   },
   async deleteNews(newsId) {
-    if (GAS_API_URL) {
-      await fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'deleteNews', newsId })
-      });
-    } else {
-      const db = JSON.parse(localStorage.getItem('mockDB'));
-      db.news = db.news.filter(n => n.id !== newsId);
-      localStorage.setItem('mockDB', JSON.stringify(db));
-    }
+    assertGasConfig();
+    await postToGas({ action: 'deleteNews', newsId });
   }
 };

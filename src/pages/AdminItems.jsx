@@ -14,12 +14,14 @@ export default function AdminItems ({ items = [], itemTypes = [], onAddItem, res
   
   const { searchTerm, setSearchTerm, searchInputRef, containerRef, isSearchOpen, setIsSearchOpen, openSearchMorph, closeSearchMorph, isFilterOpen, setIsFilterOpen, handleFilterClick } = useToolbarMorph();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     fixMobileViewport(false); // 送出時收合鍵盤，不重置滾動
-    onAddItem(newItem);
-    setIsModalOpen(false);
-    setNewItem({ name: '', type: itemTypes[0] || '其他', accessories: '', lifespan: '', id: '', qty: 1 });
+    const success = await onAddItem(newItem);
+    if (success !== false) {
+      setIsModalOpen(false);
+      setNewItem({ name: '', type: itemTypes[0] || '其他', accessories: '', lifespan: '', id: '', qty: 1 });
+    }
   };
 
   const filteredItems = items.filter(item => {

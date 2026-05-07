@@ -105,14 +105,17 @@ export default function NewsPage ({ news = [], isAdmin, isSimulatingUser, onAddN
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    let success = false;
     if (editingNews) {
-      onUpdateNews({ ...editingNews, ...formData });
+      success = await onUpdateNews({ ...editingNews, ...formData });
     } else {
-      onAddNews(formData);
+      success = await onAddNews(formData);
     }
-    setIsModalOpen(false);
+    if (success !== false) {
+      setIsModalOpen(false);
+    }
   };
 
   const containerClass = isMobileDevice
